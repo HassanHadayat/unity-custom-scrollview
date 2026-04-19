@@ -1,0 +1,25 @@
+{
+  "name": "com.h3.customscrollview",
+  "version": "0.0.1",
+  "displayName": "CustomScrollView",
+  "description": "A lightweight, section-based infinite scroll view for Unity UI. Supports vertical, horizontal, and grid layouts with object pooling and data-driven content.",
+  "keywords": [
+    "scrollview",
+    "listview",
+    "recyclable",
+    "infinite-scroll",
+    "grid",
+    "ui"
+  ],
+  "author": {
+    "name": "Hassan Hadayat",
+    "url": "https://github.com/HassanHadayat"
+  },
+  "samples": [
+    {
+      "displayName": "Demo",
+      "description": "Demo scenes showing all layout modes and section support",
+      "path": "Samples~/Demo"
+    }
+  ]
+}
