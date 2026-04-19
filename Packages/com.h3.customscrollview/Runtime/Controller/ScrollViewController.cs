@@ -56,15 +56,23 @@ namespace CustomScrollView.Controller
 
         // ── Public properties ─────────────────────────────────────
 
+        /// <summary>Scroll axis configured in the Inspector.</summary>
         public ScrollDirection Direction => _direction;
+
+        /// <summary>Global grid constraint configured in the Inspector. Per-section overrides take precedence.</summary>
         public GridConstraint Constraint => _gridConstraint;
 
         // ── Setup ─────────────────────────────────────────────────
 
         /// <summary>
-        /// Initialize the scroll view with a data source and cell provider.
-        /// Call this before ReloadData().
+        /// Initialize the scroll view with a data source and a fully custom cell provider.
+        /// Calls <see cref="ReloadData"/> automatically. Safe to call multiple times to swap data sources.
         /// </summary>
+        /// <param name="dataSource">
+        /// Supplies section/item counts and sizes. Optionally implement
+        /// <see cref="ISectionLayoutProvider"/> on the same object for per-section layout overrides.
+        /// </param>
+        /// <param name="cellProvider">Creates, fills, and recycles cell GameObjects.</param>
         public void Initialize(IScrollDataSource dataSource, ICellProvider cellProvider)
         {
             _dataSource = dataSource ?? throw new ArgumentNullException(nameof(dataSource));
@@ -82,9 +90,13 @@ namespace CustomScrollView.Controller
         }
 
         /// <summary>
-        /// Convenience init using delegates instead of implementing interfaces.
-        /// Creates a DefaultCellProvider internally.
+        /// Convenience overload using delegate selectors instead of a full <see cref="ICellProvider"/>.
+        /// Builds a <c>DefaultCellProvider</c> internally.
         /// </summary>
+        /// <param name="dataSource">Supplies section/item counts and sizes.</param>
+        /// <param name="cellPrefabSelector">Returns the prefab to instantiate for a given (section, index).</param>
+        /// <param name="headerPrefabSelector">Returns the header prefab for a section. Null = no headers.</param>
+        /// <param name="footerPrefabSelector">Returns the footer prefab for a section. Null = no footers.</param>
         public void Initialize(
             IScrollDataSource dataSource,
             Func<int, int, GameObject> cellPrefabSelector,
@@ -99,6 +111,10 @@ namespace CustomScrollView.Controller
 
         // ── IScrollViewController ─────────────────────────────────
 
+        /// <summary>
+        /// Rebuilds the layout and refreshes all visible cells from the current data source.
+        /// Call after adding, removing, or resizing items. Already called automatically on initialization.
+        /// </summary>
         public void ReloadData()
         {
             if (!_initialized) return;
@@ -117,6 +133,15 @@ namespace CustomScrollView.Controller
             UpdateVisibleCells();
         }
 
+        /// <summary>
+        /// Animates the scroll position so the item at (<paramref name="section"/>, <paramref name="index"/>) is
+        /// at the top (vertical) or left (horizontal) of the viewport.
+        /// The position is clamped so the content never overscrolls past the end.
+        /// Silently ignored if the section/index does not exist.
+        /// </summary>
+        /// <param name="section">Zero-based section index.</param>
+        /// <param name="index">Zero-based item index within the section.</param>
+        /// <param name="duration">Animation duration in seconds. Pass 0 for an instant jump.</param>
         public void ScrollTo(int section, int index, float duration = 0.3f)
         {
             if (!_initialized) return;
@@ -127,11 +152,19 @@ namespace CustomScrollView.Controller
             ScrollToPosition(rect.Position, duration);
         }
 
+        /// <summary>
+        /// Animates the scroll position to the very beginning of the content.
+        /// </summary>
+        /// <param name="duration">Animation duration in seconds. Pass 0 for an instant jump.</param>
         public void ScrollToTop(float duration = 0.3f)
         {
             ScrollToPosition(0f, duration);
         }
 
+        /// <summary>
+        /// Animates the scroll position to the very end of the content.
+        /// </summary>
+        /// <param name="duration">Animation duration in seconds. Pass 0 for an instant jump.</param>
         public void ScrollToBottom(float duration = 0.3f)
         {
             float max = _layout.GetContentSize() - GetViewportMainSize();
@@ -367,6 +400,9 @@ namespace CustomScrollView.Controller
 
         private void ScrollToPosition(float position, float duration)
         {
+            float max = Mathf.Max(0f, _layout.GetContentSize() - GetViewportMainSize());
+            position = Mathf.Clamp(position, 0f, max);
+
             if (_scrollCoroutine != null) StopCoroutine(_scrollCoroutine);
 
             if (duration <= 0f)

@@ -1,4 +1,5 @@
 using UnityEngine;
+using CustomScrollView;
 
 namespace CustomScrollView.Interfaces
 {
@@ -87,6 +88,17 @@ namespace CustomScrollView.Interfaces
     public interface IScrollSectionElement
     {
         void OnFill(int section);
+    }
+
+    // ── Per-section layout ─────────────────────────────────────────
+
+    /// <summary>
+    /// Optionally implement alongside IScrollDataSource to supply per-section layout overrides.
+    /// Sections that return false fall back to the global ScrollViewConfig.
+    /// </summary>
+    public interface ISectionLayoutProvider
+    {
+        bool TryGetSectionLayout(int section, out SectionLayoutDescriptor descriptor);
     }
 
     // ── Layout strategy ────────────────────────────────────────────

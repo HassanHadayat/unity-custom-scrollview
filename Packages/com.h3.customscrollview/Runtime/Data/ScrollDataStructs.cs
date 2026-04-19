@@ -4,6 +4,24 @@ using CustomScrollView.Enums;
 namespace CustomScrollView
 {
     /// <summary>
+    /// Per-section layout override. Fields with default values fall back to global ScrollViewConfig.
+    /// </summary>
+    public struct SectionLayoutDescriptor
+    {
+        /// <summary>When true, Constraint overrides the global layout mode for this section.</summary>
+        public bool OverrideConstraint;
+        /// <summary>Layout mode for this section. Only used when OverrideConstraint is true.</summary>
+        public GridConstraint Constraint;
+        /// <summary>Column count (vertical grid) or row count (horizontal grid). 0 = inherit global.</summary>
+        public int LaneCount;
+        /// <summary>Main-axis spacing between items in this section.</summary>
+        public float Spacing;
+        /// <summary>Cross-axis spacing between grid cells in this section.</summary>
+        public float CrossSpacing;
+    }
+
+
+    /// <summary>
     /// Immutable config snapshot consumed by layout strategies.
     /// </summary>
     public readonly struct ScrollViewConfig
