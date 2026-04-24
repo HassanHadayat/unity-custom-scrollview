@@ -50,9 +50,24 @@ namespace CustomScrollView.Controller
         private Transform _poolRoot;
 
         private readonly Dictionary<int, GameObject> _activeCells = new();
+        private readonly Dictionary<int, CellBindings> _bindings = new();
         private VisibleRange _currentRange;
         private bool _initialized;
         private Coroutine _scrollCoroutine;
+
+        private readonly struct CellBindings
+        {
+            public readonly RectTransform Rt;
+            public readonly IScrollCell Fill;
+            public readonly IScrollSectionElement SectionFill;
+
+            public CellBindings(RectTransform rt, IScrollCell fill, IScrollSectionElement sectionFill)
+            {
+                Rt = rt;
+                Fill = fill;
+                SectionFill = sectionFill;
+            }
+        }
 
         // ── Public properties ─────────────────────────────────────
 
@@ -81,7 +96,7 @@ namespace CustomScrollView.Controller
             EnsureComponents();
 
             _elementMap = new ElementMap();
-            _layout = LayoutStrategyFactory.Create(_gridConstraint);
+            _layout = LayoutStrategyFactory.Create();
 
             _scrollRect.onValueChanged.AddListener(OnScroll);
             _initialized = true;
@@ -120,17 +135,33 @@ namespace CustomScrollView.Controller
             if (!_initialized) return;
 
             RecycleAll();
-
-            var config = BuildConfig();
             _elementMap.Build(_dataSource);
-            _layout.Build(_dataSource, config);
 
-            // Resize content
-            SetContentSize(_layout.GetContentSize());
+            RebuildLayout();
 
-            // Reset position
+            // ScrollRect with AutoHideAndExpandViewport inserts the scrollbar
+            // once content overflows, which shrinks the viewport cross-size.
+            // Force that pass now and rebuild once if it actually changed.
+            float crossBefore = GetViewportCrossSize();
+            LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)_scrollRect.transform);
+            if (!Mathf.Approximately(crossBefore, GetViewportCrossSize()))
+                RebuildLayout();
+
             _currentRange = VisibleRange.Empty;
             UpdateVisibleCells();
+        }
+
+        private void RebuildLayout()
+        {
+            _layout.Build(_dataSource, BuildConfig());
+            SetContentSize(_layout.GetContentSize());
+        }
+
+        private float GetViewportCrossSize()
+        {
+            return _direction == ScrollDirection.Vertical
+                ? _viewport.rect.width
+                : _viewport.rect.height;
         }
 
         /// <summary>
@@ -184,6 +215,9 @@ namespace CustomScrollView.Controller
             float viewportSize = GetViewportMainSize();
             var newRange = _layout.GetVisibleRange(scrollPos, viewportSize);
 
+            if (newRange.First == _currentRange.First && newRange.Last == _currentRange.Last)
+                return;
+
             if (newRange.IsEmpty)
             {
                 RecycleAll();
@@ -223,27 +257,47 @@ namespace CustomScrollView.Controller
             {
                 case ElementInfo.ElementType.Header:
                     go = _cellProvider.GetHeader(info.Section, _content);
-                    go?.GetComponent<IScrollSectionElement>()?.OnFill(info.Section);
                     break;
-
                 case ElementInfo.ElementType.Footer:
                     go = _cellProvider.GetFooter(info.Section, _content);
-                    go?.GetComponent<IScrollSectionElement>()?.OnFill(info.Section);
                     break;
-
                 case ElementInfo.ElementType.Item:
-                    string reuseId = GetReuseId(info.Section, info.Index);
-                    go = _cellProvider.GetCell(info.Section, info.Index, reuseId, _content);
-                    go?.GetComponent<IScrollCell>()?.OnFill(info.Section, info.Index);
+                    go = _cellProvider.GetCell(info.Section, info.Index, _content);
+                    break;
+            }
+
+            if (go == null) return;
+
+            var bindings = GetOrCacheBindings(go);
+
+            switch (info.Type)
+            {
+                case ElementInfo.ElementType.Header:
+                case ElementInfo.ElementType.Footer:
+                    bindings.SectionFill?.OnFill(info.Section);
+                    break;
+                case ElementInfo.ElementType.Item:
+                    bindings.Fill?.OnFill(info.Section, info.Index);
                     OnCellVisible?.Invoke(info.Section, info.Index, go);
                     break;
             }
 
-            if (go != null)
+            PositionElement(bindings.Rt, rect);
+            _activeCells[flatIndex] = go;
+        }
+
+        private CellBindings GetOrCacheBindings(GameObject go)
+        {
+            int id = go.GetInstanceID();
+            if (!_bindings.TryGetValue(id, out var b))
             {
-                PositionElement(go, rect);
-                _activeCells[flatIndex] = go;
+                b = new CellBindings(
+                    go.GetComponent<RectTransform>(),
+                    go.GetComponent<IScrollCell>(),
+                    go.GetComponent<IScrollSectionElement>());
+                _bindings[id] = b;
             }
+            return b;
         }
 
         private void RecycleElement(int flatIndex)
@@ -255,14 +309,13 @@ namespace CustomScrollView.Controller
             switch (info.Type)
             {
                 case ElementInfo.ElementType.Header:
-                    _cellProvider.RecycleHeader(go, info.Section);
+                    _cellProvider.RecycleHeader(go);
                     break;
                 case ElementInfo.ElementType.Footer:
-                    _cellProvider.RecycleFooter(go, info.Section);
+                    _cellProvider.RecycleFooter(go);
                     break;
                 case ElementInfo.ElementType.Item:
-                    string reuseId = GetReuseId(info.Section, info.Index);
-                    _cellProvider.RecycleCell(go, reuseId);
+                    _cellProvider.RecycleCell(go);
                     OnCellRecycled?.Invoke(info.Section, info.Index);
                     break;
             }
@@ -276,13 +329,13 @@ namespace CustomScrollView.Controller
                 switch (info.Type)
                 {
                     case ElementInfo.ElementType.Header:
-                        _cellProvider.RecycleHeader(kvp.Value, info.Section);
+                        _cellProvider.RecycleHeader(kvp.Value);
                         break;
                     case ElementInfo.ElementType.Footer:
-                        _cellProvider.RecycleFooter(kvp.Value, info.Section);
+                        _cellProvider.RecycleFooter(kvp.Value);
                         break;
                     case ElementInfo.ElementType.Item:
-                        _cellProvider.RecycleCell(kvp.Value, GetReuseId(info.Section, info.Index));
+                        _cellProvider.RecycleCell(kvp.Value);
                         break;
                 }
             }
@@ -292,9 +345,8 @@ namespace CustomScrollView.Controller
 
         // ── Positioning ───────────────────────────────────────────
 
-        private void PositionElement(GameObject go, ElementRect rect)
+        private void PositionElement(RectTransform rt, ElementRect rect)
         {
-            var rt = go.GetComponent<RectTransform>();
             if (rt == null) return;
 
             rt.anchorMin = _direction == ScrollDirection.Vertical
@@ -437,15 +489,6 @@ namespace CustomScrollView.Controller
 
             SetScrollPosition(target);
             _scrollCoroutine = null;
-        }
-
-        /// <summary>
-        /// Override in subclass or set via delegate for multi-type cells.
-        /// Default uses prefab name.
-        /// </summary>
-        private string GetReuseId(int section, int index)
-        {
-            return $"cell_{section}";
         }
 
         private void OnDestroy()
