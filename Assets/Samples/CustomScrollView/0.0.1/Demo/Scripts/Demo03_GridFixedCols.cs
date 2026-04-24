@@ -1,6 +1,7 @@
 using CustomScrollView.Controller;
 using CustomScrollView.Data;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace CustomScrollView.Demo
 {
@@ -10,6 +11,7 @@ namespace CustomScrollView.Demo
     public class Demo03_GridFixedCols : MonoBehaviour
     {
         [Header("References")]
+        [SerializeField] private ScrollRect _scrollRect;
         [SerializeField] private ScrollViewController _scrollView;
         [SerializeField] private GameObject _cellPrefab;
 
@@ -22,7 +24,6 @@ namespace CustomScrollView.Demo
             var ds = new SimpleDataSource();
             int section = ds.AddSection();
             ds.AddItems(section, _itemCount, _itemHeight);
-
             _scrollView.Initialize(ds, (s, i) => _cellPrefab);
         }
     }

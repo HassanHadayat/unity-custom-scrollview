@@ -30,10 +30,10 @@ The library implements MVC with three clear layers:
 - Entry point: `controller.Initialize(dataSource, cellPrefabSelector, headerPrefabSelector)`
 
 **View** — `Runtime/View/`, `Runtime/Core/`, `Runtime/Layout/`
-- `DefaultCellProvider` + `CellPool`: instantiate/recycle cell prefabs (object pooling)
-- `LinearLayoutStrategy` / `GridLayoutStrategy`: calculate element positions and detect the visible range via binary search
+- `DefaultCellProvider` + `CellPool`: instantiate/recycle cell prefabs (object pooling keyed by prefab instance ID)
+- `CompositeLayoutStrategy`: calculates element positions and detects the visible range via binary search; supports mixed linear/grid sections
 - `ElementMap`: O(1) flat-index ↔ section/item-index lookup
-- `LayoutStrategyFactory`: selects strategy based on `GridConstraint` enum
+- `LayoutStrategyFactory`: returns the layout strategy (currently always `CompositeLayoutStrategy`)
 
 ## Key Extension Points
 

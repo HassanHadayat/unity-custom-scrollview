@@ -42,9 +42,9 @@ namespace CustomScrollView.Interfaces
     {
         /// <summary>
         /// Return (or instantiate) a cell for the given section + index.
-        /// Use <paramref name="reuseId"/> to look up pooled objects.
+        /// The provider owns pool-key selection.
         /// </summary>
-        GameObject GetCell(int section, int index, string reuseId, Transform parent);
+        GameObject GetCell(int section, int index, Transform parent);
 
         /// <summary>
         /// Return (or instantiate) a header for the given section.
@@ -61,17 +61,17 @@ namespace CustomScrollView.Interfaces
         /// <summary>
         /// Called when a cell scrolls off-screen and should be returned to the pool.
         /// </summary>
-        void RecycleCell(GameObject cell, string reuseId);
+        void RecycleCell(GameObject cell);
 
         /// <summary>
         /// Called when a header scrolls off-screen.
         /// </summary>
-        void RecycleHeader(GameObject header, int section);
+        void RecycleHeader(GameObject header);
 
         /// <summary>
         /// Called when a footer scrolls off-screen.
         /// </summary>
-        void RecycleFooter(GameObject footer, int section);
+        void RecycleFooter(GameObject footer);
     }
 
     /// <summary>

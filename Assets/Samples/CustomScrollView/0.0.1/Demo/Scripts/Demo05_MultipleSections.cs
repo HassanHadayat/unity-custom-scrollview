@@ -26,7 +26,7 @@ namespace CustomScrollView.Demo
 
             for (int s = 0; s < _sectionCount; s++)
             {
-                int section = ds.AddSection(headerSize: _headerHeight);
+                int section = ds.AddSection();
                 ds.AddItems(section, _itemsPerSection, _itemHeight);
             }
 

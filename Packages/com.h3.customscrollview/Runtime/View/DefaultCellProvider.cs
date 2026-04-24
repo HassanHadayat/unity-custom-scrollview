@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using CustomScrollView.Core;
 using CustomScrollView.Interfaces;
@@ -7,7 +8,7 @@ namespace CustomScrollView.View
 {
     /// <summary>
     /// Default cell provider that uses prefab instantiation + CellPool for recycling.
-    /// Users can replace this with a custom ICellProvider for advanced scenarios.
+    /// Pool buckets are keyed by prefab instance ID, so sections sharing a prefab share a pool.
     /// </summary>
     public sealed class DefaultCellProvider : ICellProvider
     {
@@ -16,18 +17,9 @@ namespace CustomScrollView.View
         private readonly Func<int, GameObject> _headerPrefabSelector;
         private readonly Func<int, GameObject> _footerPrefabSelector;
 
-        private const string HeaderReusePrefix = "__header__";
-        private const string FooterReusePrefix = "__footer__";
+        // cell GO instance ID → prefab instance ID (the pool bucket to return to)
+        private readonly Dictionary<int, int> _poolKeyByInstance = new();
 
-        /// <summary>
-        /// Create a DefaultCellProvider.
-        /// </summary>
-        /// <param name="pool">Shared cell pool.</param>
-        /// <param name="cellPrefabSelector">
-        ///   (section, index) → prefab. The prefab name is used as the reuse ID.
-        /// </param>
-        /// <param name="headerPrefabSelector">(section) → prefab or null.</param>
-        /// <param name="footerPrefabSelector">(section) → prefab or null.</param>
         public DefaultCellProvider(
             CellPool pool,
             Func<int, int, GameObject> cellPrefabSelector,
@@ -40,19 +32,10 @@ namespace CustomScrollView.View
             _footerPrefabSelector = footerPrefabSelector;
         }
 
-        public GameObject GetCell(int section, int index, string reuseId, Transform parent)
+        public GameObject GetCell(int section, int index, Transform parent)
         {
-            var go = _pool.Dequeue(reuseId);
-            if (go == null)
-            {
-                var prefab = _cellPrefabSelector(section, index);
-                go = UnityEngine.Object.Instantiate(prefab, parent, false);
-            }
-            else
-            {
-                go.transform.SetParent(parent, false);
-            }
-            return go;
+            var prefab = _cellPrefabSelector(section, index);
+            return GetFromPoolOrInstantiate(prefab, parent);
         }
 
         public GameObject GetHeader(int section, Transform parent)
@@ -60,18 +43,7 @@ namespace CustomScrollView.View
             if (_headerPrefabSelector == null) return null;
             var prefab = _headerPrefabSelector(section);
             if (prefab == null) return null;
-
-            string reuseId = HeaderReusePrefix + section;
-            var go = _pool.Dequeue(reuseId);
-            if (go == null)
-            {
-                go = UnityEngine.Object.Instantiate(prefab, parent, false);
-            }
-            else
-            {
-                go.transform.SetParent(parent, false);
-            }
-            return go;
+            return GetFromPoolOrInstantiate(prefab, parent);
         }
 
         public GameObject GetFooter(int section, Transform parent)
@@ -79,12 +51,21 @@ namespace CustomScrollView.View
             if (_footerPrefabSelector == null) return null;
             var prefab = _footerPrefabSelector(section);
             if (prefab == null) return null;
+            return GetFromPoolOrInstantiate(prefab, parent);
+        }
 
-            string reuseId = FooterReusePrefix + section;
-            var go = _pool.Dequeue(reuseId);
+        public void RecycleCell(GameObject cell)   => ReturnToPool(cell);
+        public void RecycleHeader(GameObject go)   => ReturnToPool(go);
+        public void RecycleFooter(GameObject go)   => ReturnToPool(go);
+
+        private GameObject GetFromPoolOrInstantiate(GameObject prefab, Transform parent)
+        {
+            int key = prefab.GetInstanceID();
+            var go = _pool.Dequeue(key);
             if (go == null)
             {
                 go = UnityEngine.Object.Instantiate(prefab, parent, false);
+                _poolKeyByInstance[go.GetInstanceID()] = key;
             }
             else
             {
@@ -93,19 +74,16 @@ namespace CustomScrollView.View
             return go;
         }
 
-        public void RecycleCell(GameObject cell, string reuseId)
+        private void ReturnToPool(GameObject go)
         {
-            _pool.Enqueue(reuseId, cell);
-        }
-
-        public void RecycleHeader(GameObject header, int section)
-        {
-            _pool.Enqueue(HeaderReusePrefix + section, header);
-        }
-
-        public void RecycleFooter(GameObject footer, int section)
-        {
-            _pool.Enqueue(FooterReusePrefix + section, footer);
+            if (go == null) return;
+            if (!_poolKeyByInstance.TryGetValue(go.GetInstanceID(), out int key))
+            {
+                // Unknown origin — destroy rather than leak into a wrong bucket.
+                UnityEngine.Object.Destroy(go);
+                return;
+            }
+            _pool.Enqueue(key, go);
         }
     }
 }

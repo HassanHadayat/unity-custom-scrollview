@@ -4,12 +4,12 @@ using UnityEngine;
 namespace CustomScrollView.Core
 {
     /// <summary>
-    /// Generic object pool keyed by reuse identifier.
+    /// Generic object pool keyed by an integer reuse identifier (typically a prefab instance ID).
     /// Lightweight — no allocations on recycle.
     /// </summary>
     public sealed class CellPool
     {
-        private readonly Dictionary<string, Queue<GameObject>> _pools = new();
+        private readonly Dictionary<int, Queue<GameObject>> _pools = new();
         private readonly Transform _poolRoot;
 
         public CellPool(Transform poolRoot)
@@ -20,7 +20,7 @@ namespace CustomScrollView.Core
         /// <summary>
         /// Try to dequeue a recycled cell. Returns null if pool is empty.
         /// </summary>
-        public GameObject Dequeue(string reuseId)
+        public GameObject Dequeue(int reuseId)
         {
             if (_pools.TryGetValue(reuseId, out var queue) && queue.Count > 0)
             {
@@ -34,7 +34,7 @@ namespace CustomScrollView.Core
         /// <summary>
         /// Return a cell to the pool.
         /// </summary>
-        public void Enqueue(string reuseId, GameObject go)
+        public void Enqueue(int reuseId, GameObject go)
         {
             if (!_pools.TryGetValue(reuseId, out var queue))
             {

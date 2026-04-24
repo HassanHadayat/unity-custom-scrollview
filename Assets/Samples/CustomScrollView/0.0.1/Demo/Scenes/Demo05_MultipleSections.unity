@@ -256,7 +256,7 @@ MonoBehaviour:
   _scrollView: {fileID: 1985556070}
   _cellPrefab: {fileID: 7535765465075080467, guid: ac77bed607fdd414d82a1af72c5c4b31, type: 3}
   _headerPrefab: {fileID: 346323708032239673, guid: 34e9d7a77b7c831458bd17c4a6e83ca5, type: 3}
-  _sectionCount: 5
+  _sectionCount: 1
   _itemsPerSection: 15
   _itemHeight: 70
   _headerHeight: 50
@@ -1036,13 +1036,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 1985556065}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f8583243c58924642bd7eb436e0076f8, type: 3}
+  m_Script: {fileID: 11500000, guid: 4a14723033929144c95b01405d085faf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: CustomScrollView.Runtime::CustomScrollView.Controller.ScrollViewController
   _direction: 0
-  _gridConstraint: 0
-  _constraintCount: 1
-  _spacing: 2
+  _gridConstraint: 1
+  _constraintCount: 2
+  _spacing: 8
   _gridCrossSpacing: 8
   _padding:
     m_Left: 0

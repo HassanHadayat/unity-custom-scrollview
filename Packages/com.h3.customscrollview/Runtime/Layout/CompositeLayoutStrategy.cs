@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using CustomScrollView.Core;
 using CustomScrollView.Enums;
 using CustomScrollView.Interfaces;
 
@@ -7,22 +6,31 @@ namespace CustomScrollView.Layout
 {
     /// <summary>
     /// Layout strategy that supports mixed per-section layouts (linear and grid).
-    /// Replaces LinearLayoutStrategy and GridLayoutStrategy in the factory.
     /// Sections without an ISectionLayoutProvider descriptor fall back to the global ScrollViewConfig.
     /// </summary>
     public sealed class CompositeLayoutStrategy : ILayoutStrategy
     {
-        private readonly ElementMap _map = new();
         private readonly List<ElementRect> _rects = new();
+        private float[] _rowSizeBuf = System.Array.Empty<float>();
         private float _contentSize;
         private float _crossSize;
 
-        public int TotalElementCount => _map.Count;
+        public int TotalElementCount => _rects.Count;
 
         public void Build(IScrollDataSource dataSource, ScrollViewConfig config)
         {
-            _map.Build(dataSource);
             _rects.Clear();
+
+            int sectionCount = dataSource.GetSectionCount();
+
+            int expected = 0;
+            for (int s = 0; s < sectionCount; s++)
+            {
+                if (dataSource.GetHeaderSize(s) > 0f) expected++;
+                expected += dataSource.GetItemCount(s);
+                if (dataSource.GetFooterSize(s) > 0f) expected++;
+            }
+            if (_rects.Capacity < expected) _rects.Capacity = expected;
 
             var layoutProvider = dataSource as ISectionLayoutProvider;
 
@@ -35,7 +43,6 @@ namespace CustomScrollView.Layout
             _crossSize = totalCross;
 
             float offset = mainPadStart;
-            int sectionCount = dataSource.GetSectionCount();
 
             for (int s = 0; s < sectionCount; s++)
             {
@@ -74,6 +81,8 @@ namespace CustomScrollView.Layout
                 int itemCount = dataSource.GetItemCount(s);
                 if (isGrid)
                 {
+                    if (_rowSizeBuf.Length < lanes) _rowSizeBuf = new float[lanes];
+
                     int itemIdx = 0;
                     while (itemIdx < itemCount)
                     {
@@ -83,17 +92,17 @@ namespace CustomScrollView.Layout
                         for (int col = 0; col < rowCount; col++)
                         {
                             float sz = dataSource.GetItemSize(s, itemIdx + col);
+                            _rowSizeBuf[col] = sz;
                             if (sz > rowMaxSize) rowMaxSize = sz;
                         }
 
                         for (int col = 0; col < rowCount; col++)
                         {
-                            float sz = dataSource.GetItemSize(s, itemIdx + col);
                             float crossPos = crossPadStart + col * (cellCross + crossGap);
                             _rects.Add(new ElementRect
                             {
                                 Position      = offset,
-                                Size          = sz,
+                                Size          = _rowSizeBuf[col],
                                 CrossPosition = crossPos,
                                 CrossSize     = cellCross
                             });

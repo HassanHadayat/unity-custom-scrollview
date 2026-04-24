@@ -381,7 +381,7 @@ Inject it by modifying `LayoutStrategyFactory.Create()`.
 ```csharp
 public class AddressableCellProvider : ICellProvider
 {
-    public GameObject GetCell(int section, int index, string reuseId, Transform parent)
+    public GameObject GetCell(int section, int index, Transform parent)
     {
         // load from Addressables, fall back to sync on cache hit
     }
